@@ -1,0 +1,7 @@
+1;1;Tableau de mort subite de cause inconnue au terme du temps macroscopique de l'autopsie ;cause inconnue;C799:26:40
+1;1;Tableau de mort subite de cause inconnue au terme du temps macroscopique de l'autopsie ;autopsie;R97:76:86
+1;1;Tableau de mort subite de cause inconnue au terme du temps macroscopique de l'autopsie ;autopsie;R99:76:86
+1;1;Tableau de mort subite de cause inconnue au terme du temps macroscopique de l'autopsie ;cause inconnue;R99:26:40
+1;1;Tableau de mort subite de cause inconnue au terme du temps macroscopique de l'autopsie ;mort subite;R95:11:22
+1;1;Tableau de mort subite de cause inconnue au terme du temps macroscopique de l'autopsie ;mort subite;R960:11:22
+1;1;Tableau de mort subite de cause inconnue au terme du temps macroscopique de l'autopsie ;cause inconnue;R97:26:40
