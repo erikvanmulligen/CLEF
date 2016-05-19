@@ -1,4 +1,5 @@
 eclipse.preferences.version=1
+encoding//data/ERtask_output__ERtask_NO_SUB_2016-05-19-170446.out=UTF-8
 encoding//data/icd10/Corpus.txt=UTF-8
 encoding//data/icd10/DictCorpus.txt=UTF-8
 encoding//data/icd10/filteredDictCorpus.txt=UTF-8
@@ -8,4 +9,5 @@ encoding//data/icd10/filteredDictCorpus_out_210416.txt=UTF-8
 encoding//data/icd10/filteredDictCorpus_out_NO_SUB_250416.txt=UTF-8
 encoding//data/icd10/output.txt=UTF-8
 encoding//data/icd10/terms.txt=UTF-8
+encoding//src/nl/erasmusmc/bios/clef/er/Evaluate.java=UTF-8
 encoding//src/nl/erasmusmc/bios/clef/icd10/Evaluate.java=UTF-8

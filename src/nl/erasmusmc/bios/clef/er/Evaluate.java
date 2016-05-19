@@ -175,13 +175,10 @@ public class Evaluate {
     }
 
     public static TagResponse parse(String jsonLine) {
-	
-	logger.info("parse:"+jsonLine);
 	Map<String,List<Position>> positions = new HashMap<String,List<Position>>();
 	TagResponse result = new TagResponse();
 	JsonElement jelement = new JsonParser().parse(jsonLine);
 	JsonObject  jobject = jelement.getAsJsonObject();
-	//JsonObject  object = jobject.getAsJsonObject("responseHeader");
 	JsonArray tags = jobject.getAsJsonArray("tags");
 	for ( JsonElement tagElt : tags ){
 	    JsonArray tag = tagElt.getAsJsonArray();
