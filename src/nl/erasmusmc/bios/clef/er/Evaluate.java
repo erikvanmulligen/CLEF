@@ -1,27 +1,27 @@
-package nl.erasmusmc.bios.clef.icd10;
+package nl.erasmusmc.bios.clef.er;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
-import java.io.Writer;
+import java.io.UnsupportedEncodingException;
 import java.net.URISyntaxException;
-import java.nio.charset.Charset;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipOutputStream;
+
+import javax.swing.filechooser.FileNameExtensionFilter;
 
 import nl.erasmusmc.bios.clef.utils.Position;
 import nl.erasmusmc.bios.clef.utils.TagItem;
@@ -54,12 +54,15 @@ public class Evaluate {
     static Logger logger = LogManager.getLogger();
     static CloseableHttpClient client = HttpClients.createDefault();
     static SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd-HHmmss");
+    static HashMap<String, String> headers = new HashMap<String, String>();
+    static FileNameExtensionFilter filter = new FileNameExtensionFilter("text only","txt");
 
     public static void main(String[] args) throws URISyntaxException {
 	Options options = new Options()
 	.addOption("solr", true, "SOLR repository")
 	.addOption("core", true, "SOLR core")
-	.addOption("file", true, "file to import")
+	.addOption("directory", true, "directory with corpus texts")
+	.addOption("outputfolder", true, "output folder for results file")
 	.addOption("match", true, "match type: NO_SUB or LONGEST_DOMINANT_RIGHT (default)")
 	.addOption("type", true, "optional file type")
 	.addOption("output", true, "optional output file");
@@ -69,19 +72,26 @@ public class Evaluate {
 	try {
 	    // parse the command line arguments
 	    CommandLine line = parser.parse(options, args, false);
+	    headers.put("Content-Type", "text/plain ; charset=utf-8");
 
 	    if (line.getArgList().size() > 0) {
 		throw new ParseException("unknown arguments");
 	    }
 	    String solr = line.hasOption("solr") ? line.getOptionValue("solr") : "http://localhost:8990/solr";
 	    String core = line.hasOption("core") ? line.getOptionValue("core") : null;
-	    String match = line.hasOption("match") ? line.getOptionValue("match") : "LONGEST_DOMINANT_RIGHT";
-	    String file = line.hasOption("file") ? line.getOptionValue("file") : null;
+	    String match = line.hasOption("match") ? line.getOptionValue("match") : "NO_SUB";
+	    String directory = line.hasOption("directory") ? line.getOptionValue("directory") : null;
+	    String outputfolder = line.hasOption("outputfolder") ? line.getOptionValue("outputfolder") : "data";
 	    String type = line.hasOption("type") ? line.getOptionValue("type") : "dictionary";
-	    String output = line.hasOption("output") ? line.getOptionValue("output") : generateFileName(file,core,match);
+	    String output = line.hasOption("output") ? line.getOptionValue("output") : generateFileName(outputfolder+"/ERtask_output_",core,match);
 
-	    if (solr != null && core != null && file != null && type != null && match != null && output != null) {
-		process(solr, core, file, match, type, output);
+	    if (solr != null && core != null && directory != null && type != null && match != null && output != null && directory != null) {
+		logger.info("output file = " + output);
+		BufferedWriter out = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(output), "UTF-8"));
+		out.write(StringUtils.join(new String[]{"SET", "FILE", "CODE", "MATCHTEXT", "PREFTERM", "TERM", "START", "END", "UUID"},"|"));
+		out.newLine();
+		process(out, solr, core, directory, match, type);
+		out.close();
 	    } else {
 		new HelpFormatter().printHelp(Evaluate.class.getCanonicalName(), options);
 	    }
@@ -100,94 +110,41 @@ public class Evaluate {
 	return FilenameUtils.removeExtension(file) + "_" + core + "_" + match + "_" + dateFormat.format(new Date()) + ".out";
     }
 
-    private static void process(String server, String core, String filename, String match, String type, String output) throws IOException, URISyntaxException {
-	switch (type){
-	case "dictionary":
-	    processDictionary(server, core, filename, match, type, output);
-	    break;
-	case "mantra_corpus":
-	    processMantraCorpus(server, core, filename.split(";"), match, type, output);
-	    break;
+    private static void process(BufferedWriter out, String server, String core, String directory, String match, String type) throws IOException, URISyntaxException {
+	File folder = new File(directory);
+	File[] listOfFiles = folder.listFiles(new FilenameFilter() {
+	    public boolean accept(File dir, String name) {
+	        return !name.toLowerCase().startsWith(".");
+	    }
+	});
+
+	for (int i = 0; i < listOfFiles.length; i++) {
+	    if (listOfFiles[i].isFile()) {
+		processFile(out, server, core, listOfFiles[i], match, type);
+	    } else if (listOfFiles[i].isDirectory()) {
+		process(out, server, core, listOfFiles[i].getAbsolutePath(), match, type);
+	    }
 	}
+	
     }
-
-    private static void processDictionary(String server, String core, String filename, String match, String type, String output) throws IOException, URISyntaxException {
-
-	HashMap<String, String> headers = new HashMap<String, String>();
-	headers.put("Content-Type", "text/plain ; charset=utf-8");
-
-	//Writer out = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(output), "UTF-8"));
-
-	FileOutputStream fos = new FileOutputStream(FilenameUtils.removeExtension(output)+".zip");
-	ZipOutputStream zos = new ZipOutputStream(fos, Charset.forName("UTF-8"));
-	ZipEntry ze = new ZipEntry(output);
-	zos.putNextEntry(ze);
-
-	try(BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(filename), "UTF8"));) {
+    
+    private static void processFile(BufferedWriter out, String server, String core, File file, String match, String type) throws UnsupportedEncodingException, FileNotFoundException, IOException{
+	try(BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(file), "UTF8"));) {
 	    String line = null;
 	    while ( ( line = br.readLine() ) != null) {
-		String[] pieces = line.split(";");
-		if (pieces.length == 3){
-		    try {
-			String request = "http://localhost:8990/solr/" + core + "/tag?fl=uuid,icd10,term&overlaps=" + match + "&tagsLimit=5000&wt=json";
-			TagResponse response = parse(getStringContent(request, pieces[2] + " AND origin:ontology", headers));
-			for ( TagItem item : response.getItems() ){
-			    byte[] buffer = (line + ";" + item.getTerm() + ";" + item + "\n").getBytes(); 
-			    zos.write(buffer, 0, buffer.length);
-			}
-		    } catch (Exception e) {
-			e.printStackTrace();
+		try {
+		    String request = "http://localhost:8990/solr/" + core + "/tag?fl=uuid,icd10,prefterm,term&overlaps=" + match + "&matchText=true&tagsLimit=5000&wt=json";
+		    TagResponse response = parse(getStringContent(request, line, headers));
+		    for (TagItem item : response.getItems()){
+			out.write(StringUtils.join(new String[]{file.getParentFile().getName(), file.getName(), item.getIcd10(), item.getMatchText(), item.getPrefTerm(), item.getTerm(), item.getStart().toString(), item.getEnd().toString(), item.getUuid()},"|"));
+			out.newLine();
 		    }
+		} catch (Exception e) {
+		    e.printStackTrace();
 		}
 	    }
+	    br.close();
 	}
-	zos.closeEntry();
-	zos.close();
-    }
-
-    private static void processMantraCorpus(String server, String core, String[] filenames, String match, String type, String output) throws IOException, URISyntaxException {
-
-	HashMap<String, String> headers = new HashMap<String, String>();
-	headers.put("Content-Type", "text/plain ; charset=utf-8");
-	HashMap<String,Set<String>> frequencies = new HashMap<String,Set<String>>();
-
-	Map<String,String> abbreviations = new HashMap<String,String>();
-	for (String f : filenames){
-	    abbreviations.put(f, FilenameUtils.getBaseName(f).substring(0,1));
-	}
-
-	for (int i = 0 ; i < filenames.length ; i++){
-	    System.out.println("processing file "+filenames[i] + " (" + abbreviations.get(filenames[i]) + ")");
-	    try(BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(filenames[i]), "UTF8"));) {
-		String line = null;
-		Integer linenr = 0;
-		while ( ( line = br.readLine() ) != null) {
-		    linenr++;
-		    try {
-			String request = "http://localhost:8990/solr/" + core + "/tag?fl=uuid,icd10,term&overlaps=" + match + "&matchText=true&tagsLimit=5000&wt=json";
-			TagResponse response = parse(getStringContent(request, line, headers));
-			for ( TagItem item : response.getItems() ){
-			    String key = item.getTerm();
-			    if(!frequencies.containsKey(key)){
-				frequencies.put(key, new HashSet<String>());
-			    }
-			    Set<String> lineSet = frequencies.get(key);
-			    lineSet.add(abbreviations.get(filenames[i])+linenr);
-			    frequencies.put(key, lineSet);
-			}
-		    } catch (Exception e) {
-			e.printStackTrace();
-		    }
-		}
-		br.close();
-	    }
-	}
-
-	Writer out = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(output), "UTF-8"));
-	for (String key : frequencies.keySet()){
-	    out.write(key + "\t" + frequencies.get(key).size() + "\t" + StringUtils.join(frequencies.get(key),";") + "\n");
-	}
-	out.close();
     }
 
     public static String getStringContent(String uri, String postData, HashMap<String, String> headers) throws Exception {
@@ -218,6 +175,8 @@ public class Evaluate {
     }
 
     public static TagResponse parse(String jsonLine) {
+	
+	logger.info("parse:"+jsonLine);
 	Map<String,List<Position>> positions = new HashMap<String,List<Position>>();
 	TagResponse result = new TagResponse();
 	JsonElement jelement = new JsonParser().parse(jsonLine);
@@ -260,6 +219,7 @@ public class Evaluate {
 		item.setUuid(uuid);
 		item.setIcd10(doc.getAsJsonObject().get("icd10").getAsString());
 		item.setTerm(doc.getAsJsonObject().get("term").getAsString());
+		item.setPrefTerm(doc.getAsJsonObject().get("prefterm").getAsString());
 		item.setStart(position.getStart());
 		item.setEnd(position.getEnd());
 		item.setMatchText(position.getMatchText());

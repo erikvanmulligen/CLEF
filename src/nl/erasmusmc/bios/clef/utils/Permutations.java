@@ -1,4 +1,4 @@
-package nl.erasmusmc.bios.clef.icd10;
+package nl.erasmusmc.bios.clef.utils;
 
 import java.util.Arrays;
 import java.util.Set;
@@ -16,7 +16,7 @@ public class Permutations {
 	System.out.println("#perms="+permutations.size());
     }
     
-    static Set<String> get(String phrase){
+    public static Set<String> get(String phrase){
 	permutations.clear();
 	String[] c = Arrays.asList(phrase.split("\\s+")).toArray(new String[0]);
 	compute(permutations,c,0);

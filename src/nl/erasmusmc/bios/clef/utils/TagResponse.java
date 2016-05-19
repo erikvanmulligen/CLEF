@@ -1,4 +1,4 @@
-package nl.erasmusmc.bios.clef.icd10;
+package nl.erasmusmc.bios.clef.utils;
 
 import java.util.ArrayList;
 import java.util.List;

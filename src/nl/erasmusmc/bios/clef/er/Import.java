@@ -1,9 +1,11 @@
-package nl.erasmusmc.bios.clef.icd10;
+package nl.erasmusmc.bios.clef.er;
 
 import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 import nl.erasmusmc.bios.clef.utils.Permutations;
@@ -64,15 +66,19 @@ public class Import {
 	try(BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(filename), "UTF8"));) {
 	    String line = null;
 	    int cnt = 0;
+	    List<SolrInputDocument> docs = new ArrayList<SolrInputDocument>();
+	    
 	    while ( ( line = br.readLine() ) != null) {
 		String[] pieces = line.split("\\|");
 		if (pieces.length == 3){
 		    String[] terms = pieces[1].split(";");
 		    for (String original_term : terms){
 			cnt++;
-			if ( cnt % 100 == 0 ){
+			if ( cnt % 1000 == 0 ){
 			    System.out.println(cnt);
 			    System.out.flush();
+			    solr.add(docs);
+			    docs.clear();
 			}
 			if (permutations){
         			for (String term : Permutations.get(original_term)){
@@ -82,7 +88,8 @@ public class Import {
         			    doc.addField("term", term);
         			    doc.addField("origin", "dictionary");
         			    doc.addField("prefterm", terms[0]);
-        			    solr.add(doc);
+        			    //solr.add(doc);
+        			    docs.add(doc);
         			}
 			}
 			else{
@@ -92,12 +99,15 @@ public class Import {
 			    doc.addField("term", original_term);
 			    doc.addField("origin", "dictionary");
 			    doc.addField("prefterm", terms[0]);
-			    solr.add(doc);
+			    //solr.add(doc);
+			    docs.add(doc);
 			}
 			
 		    }
 		}
 	    }
+	    solr.add(docs);
+	    docs.clear();
 	    br.close();
 	}
 	solr.commit();
