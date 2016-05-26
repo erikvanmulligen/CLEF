@@ -128,22 +128,43 @@ public class Evaluate {
 	
     }
     
-    private static void processFile(BufferedWriter out, String server, String core, File file, String match, String type) throws UnsupportedEncodingException, FileNotFoundException, IOException{
-	try(BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(file), "UTF8"));) {
-	    String line = null;
+    private static String ReadFile(File file){
+	StringBuffer sb = new StringBuffer();
+	String line = null;
+	try(BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(file), "UTF8"))){
 	    while ( ( line = br.readLine() ) != null) {
 		try {
-		    String request = "http://localhost:8990/solr/" + core + "/tag?fl=uuid,icd10,prefterm,term&overlaps=" + match + "&matchText=true&tagsLimit=5000&wt=json";
-		    TagResponse response = parse(getStringContent(request, line, headers));
-		    for (TagItem item : response.getItems()){
-			out.write(StringUtils.join(new String[]{file.getParentFile().getName(), file.getName(), item.getIcd10(), item.getMatchText(), item.getPrefTerm(), item.getTerm(), item.getStart().toString(), item.getEnd().toString(), item.getUuid()},"|"));
-			out.newLine();
-		    }
+		    sb.append(line); sb.append("\n");
 		} catch (Exception e) {
 		    e.printStackTrace();
 		}
 	    }
 	    br.close();
+	} catch (UnsupportedEncodingException e1) {
+	    // TODO Auto-generated catch block
+	    e1.printStackTrace();
+	} catch (FileNotFoundException e1) {
+	    // TODO Auto-generated catch block
+	    e1.printStackTrace();
+	} catch (IOException e1) {
+	    // TODO Auto-generated catch block
+	    e1.printStackTrace();
+	}
+	return sb.toString();
+    }
+    private static void processFile(BufferedWriter out, String server, String core, File file, String match, String type) throws UnsupportedEncodingException, FileNotFoundException, IOException{
+	try(BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(file), "UTF8"));) {
+	    String text = ReadFile(file);
+	    try {
+		String request = "http://localhost:8990/solr/" + core + "/tag?fl=uuid,icd10,prefterm,term&overlaps=" + match + "&matchText=true&tagsLimit=5000&wt=json";
+		TagResponse response = parse(getStringContent(request, text, headers));
+		for (TagItem item : response.getItems()){
+		    out.write(StringUtils.join(new String[]{file.getParentFile().getName(), file.getName(), item.getIcd10(), item.getMatchText(), item.getPrefTerm(), item.getTerm(), item.getStart().toString(), item.getEnd().toString(), item.getUuid()},"|"));
+		    out.newLine();
+		}
+	    } catch (Exception e) {
+		e.printStackTrace();
+	    }
 	}
     }
 
