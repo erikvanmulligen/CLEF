@@ -63,7 +63,7 @@ public class Evaluate {
 	.addOption("core", true, "SOLR core")
 	.addOption("directory", true, "directory with corpus texts")
 	.addOption("outputfolder", true, "output folder for results file")
-	.addOption("match", true, "match type: NO_SUB or LONGEST_DOMINANT_RIGHT (default)")
+	.addOption("match", true, "match type: ALL, NO_SUB or LONGEST_DOMINANT_RIGHT (default)")
 	.addOption("type", true, "optional file type")
 	.addOption("output", true, "optional output file");
 
